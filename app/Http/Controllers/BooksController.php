@@ -3,12 +3,13 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Authors;
 use Yajra\Datatables\Html\Builder;
 use Yajra\Datatables\Datatables;
+use App\Book;
 use Session;
 
-class AuthorsController extends Controller
+
+class BooksController extends Controller
 {
     /**
      * Display a listing of the resource.
@@ -18,25 +19,26 @@ class AuthorsController extends Controller
     public function index(Request $request, Builder $htmlBuilder)
     {
         if ($request->ajax()){
-            $authors = Authors::select(['id','name']);
-            return Datatables::of($authors)
-            ->addColumn('action',function($author){
+            $books = Book::with('author');
+            return Datatables::of($books)
+            ->addColumn('action',function($book){
                 return view('datatable._action',[
-                    'model'=>$author,
-                    'form_url'=>route('authors.destroy',$author->id),
-                    'edit_url'=>route('authors.edit', $author->id),
-                    'confirm_message'=>'Yakin Mau Menghapus'. $author->name.'?'
+                    'model'=>$book,
+                    'form_url'=>route('books.destroy',$book->id),
+                    'edit_url'=>route('books.edit', $book->id),
+                    'confirm_message'=>'Yakin Mau Menghapus'. $book->name.'?'
                     ]);
 
             })->make(true);
         }
 
         $html =$htmlBuilder
-        ->addColumn(['data'=>'name','name'=>'name','title'=>'Nama'])
+        ->addColumn(['data'=>'title','name'=>'title','title'=>'Judul'])
+        ->addColumn(['data'=>'amount','name'=>'amount','title'=>'Jumlah'])
+        ->addColumn(['data'=>'author.name','name'=>'author.name','title'=>'Penulis'])
         ->addColumn(['data'=>'action','name'=>'action','title'=>'','orderable'=>false,'searchable'=>false]);
-
-        return view('authors.index')->with(compact('html'));
-    }
+        return view ('books.index')->with(compact('html'));
+}
 
     /**
      * Show the form for creating a new resource.
@@ -45,7 +47,8 @@ class AuthorsController extends Controller
      */
     public function create()
     {
-        return view('authors.create');     
+        //
+        return view('books.create');
     }
 
     /**
@@ -56,12 +59,35 @@ class AuthorsController extends Controller
      */
     public function store(Request $request)
     {
-        $this->validate($request,['name'=>'required|unique:authors']);
-        $author = Authors::create($request->only('name'));
+        $this->validate($request,[
+            'title' =>'required|unique:books,title',
+            'author_id' =>'required|exists:authors,id',
+            'amount' =>'required|numeric',
+            'cover' =>'image|max:2048'
+        ]);
+        $book=Book::create($request->except('cover'));
+        // 
+        if($request->hasFile('cover')) {
+            // 
+            $uploaded_cover=$request->file('cover');
+            // 
+            $extension=$uploaded_cover->getClientOriginalExtension();
+            // 
+            $filename=md5(time()).'.'.$extension;
+            // 
+            $destinationPath=public_path().DIRECTORY_SEPARATOR.'img';
+            $uploaded_cover->move($destinationPath,$filename);
+            // 
+            $book->cover=$filename;
+            $book->save();
+        }
+
         Session::flash("flash_notification",[
             "level"=>"success",
-            "message"=>"Berhasil menyimpan $author->name"]);
-        return redirect()->route('authors.index'); 
+            "message"=>"berhasil menyimpan $book->title"
+
+        ]);
+        return redirect()->route('books.index');
     }
 
     /**
@@ -83,8 +109,8 @@ class AuthorsController extends Controller
      */
     public function edit($id)
     {
-        $author=Authors::find($id);
-        return view('authors.edit')->with(compact('author'));
+        $book=Book::find($id);
+        return view('books.edit')->with(compact('book'));
     }
 
     /**
@@ -96,13 +122,7 @@ class AuthorsController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $this->validate($request,['name'=>'required|unique:authors,name,'.$id]);
-        $author =Authors::find($id);
-        $author->update($request->only('name'));
-        Session::flash("flash_notification",[
-            "level"=>"success",
-            "message"=>"Berhasil menyimpan $author->name"]);
-        return redirect()->route('authors.index');
+        //
     }
 
     /**
@@ -113,11 +133,6 @@ class AuthorsController extends Controller
      */
     public function destroy($id)
     {
-        if(!Authors::destroy($id)) return redirect()->back();
-        Session::flash("flash_notification",[
-            "level"=>"success",
-            "message"=>"Penulis Berhasil Dihapus"
-            ]);
-        return redirect()->route('authors.index');
+        //
     }
 }

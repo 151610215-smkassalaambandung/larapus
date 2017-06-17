@@ -21,6 +21,7 @@ Route::get('/home', 'HomeController@index');
 Route::get('/coba', 'ContohController@coba');
 Route::group(['prefix'=>'admin','middleware'=>['auth','role:admin']],function(){
 Route::resource('authors','AuthorsController');
+Route::resource('books','BooksController');
 
 
 
